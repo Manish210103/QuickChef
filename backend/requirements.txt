@@ -8,7 +8,7 @@ python-jose
 email-validator
 pymongo
 motor
-pinecone-client
+pinecone
 transformers
 sentence-transformers
 torch

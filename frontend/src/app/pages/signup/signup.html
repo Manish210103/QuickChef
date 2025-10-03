@@ -1,0 +1,70 @@
+<!-- Toast Container -->
+<div class="toast-container" *ngIf="error || success">
+  <div 
+    class="toast-message" 
+    [ngClass]="{ 'toast-error': error, 'toast-success': success }"
+  >
+    {{ error || success }}
+  </div>
+</div>
+
+<div class="auth-wrapper">
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="logo">
+        <span class="chef-hat">👨‍🍳</span>
+        <h1>QuickChef</h1>
+      </div>
+      <h2>Create Account</h2>
+      <p class="subtitle">Join us and start your culinary journey</p>
+    </div>
+
+    <form (ngSubmit)="onSignup()" class="auth-form">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input 
+          id="username"
+          [(ngModel)]="username" 
+          name="username" 
+          placeholder="Choose a unique username" 
+          required 
+          class="form-input"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input 
+          id="email"
+          [(ngModel)]="email" 
+          name="email" 
+          type="email" 
+          placeholder="Enter your email address" 
+          required 
+          class="form-input"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          id="password"
+          [(ngModel)]="password" 
+          name="password" 
+          type="password" 
+          placeholder="Create a strong password" 
+          required 
+          class="form-input"
+        />
+      </div>
+
+      <button type="submit" class="btn-submit">
+        Create Account
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <p>Already have an account? <a routerLink="/login" class="auth-link">Login here</a></p>
+    </div>
+  </div>
+</div>
