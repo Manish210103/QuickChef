@@ -1,0 +1,43 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+*.log
+
+# --- Virtual environment (inside backend) ---
+backend/.venv/
+
+# --- Environment variables ---
+backend/.env
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Data / Datasets (optional, if large or sensitive) ---
+data/*.csv
+!data/Cleaned_Indian_Food_Dataset.csv   # keep this dataset if you want tracked
+
+# --- Build / Packaging ---
+build/
+dist/
+*.manifest
+*.spec
+
+# --- Jupyter / Notebooks ---
+.ipynb_checkpoints/
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+
+# --- Dependency Locks ---
+Pipfile.lock
+poetry.lock
