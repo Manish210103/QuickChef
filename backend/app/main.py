@@ -1,5 +1,6 @@
-# Updated main.py with organized Swagger tags and metadata
-
+import os
+from groq import Groq
+import json
 from fastapi import FastAPI, HTTPException, Query, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
@@ -18,7 +19,6 @@ from app.auth import (
 )
 
 # Swagger metadata and tags
-
 app = FastAPI(
     title="QuickChef RAG API",
     version="2.0.0",
@@ -27,6 +27,8 @@ app = FastAPI(
         "email": "support@quickchef.com",
     }
 )
+
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,7 +52,6 @@ class UserRegister(BaseModel):
     username: str
     email: EmailStr
     password: str
-    preferences: Optional[dict] = {}
 
 class UserLogin(BaseModel):
     username: str
@@ -73,6 +74,20 @@ class UserPreferences(BaseModel):
     dietary_restrictions: Optional[List[str]] = []
     preferred_cooking_time: Optional[int] = None
     spice_level: Optional[str] = "medium"
+    
+class RecipeGenerationRequest(BaseModel):
+    ingredients: Optional[List[str]] = []
+    max_time: Optional[int] = None
+    dietary_restrictions: Optional[List[str]] = []
+    cuisine_preference: Optional[str] = None
+    spice_level: Optional[str] = "medium"
+    servings: Optional[int] = 2
+
+class GeneratedRecipe(BaseModel):
+    title: str
+    estimated_time: int
+    ingredients: List[str]
+    instructions: List[str]
 
 # ===== SYSTEM ENDPOINTS =====
 @app.get("/", 
@@ -103,11 +118,9 @@ def home():
 def health():
     """Health check endpoint"""
     try:
-        # Test MongoDB connection
         db = get_database()
-        db.command('ping')  # Simple ping command
+        db.command('ping') 
         
-        # Test Pinecone connection
         index = get_pinecone_index()
         stats = index.describe_index_stats()
         
@@ -131,7 +144,6 @@ def register_user(user: UserRegister):
     try:
         db = get_database()
         
-        # Check if user exists
         existing_user = db.users.find_one({
             "$or": [{"username": user.username}, {"email": user.email}]
         })
@@ -147,7 +159,6 @@ def register_user(user: UserRegister):
             "username": user.username,
             "email": user.email,
             "hashed_password": hash_password(user.password),
-            "preferences": user.preferences,
             "created_at": datetime.utcnow()
         }
         
@@ -159,15 +170,8 @@ def register_user(user: UserRegister):
                 detail="Username or email already registered"
             )
         
-        # Create access token
-        access_token = create_access_token(
-            data={"sub": user.username, "user_id": str(result.inserted_id)}
-        )
-        
         return {
             "message": "User registered successfully",
-            "access_token": access_token,
-            "token_type": "bearer",
             "user_id": str(result.inserted_id)
         }
         
@@ -288,6 +292,275 @@ def search_advanced(request: QueryRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def generate_recipe_with_groq(search_results: list, user_preferences: dict) -> dict:
+    """Generate a personalized recipe using Groq API based on search results"""
+    
+    # Extract information from search results
+    similar_recipes = []
+    for result in search_results[:3]: 
+        recipe = result.get("recipe", {})
+        similar_recipes.append({
+            "name": recipe.get("name", ""),
+            "ingredients": recipe.get("ingredients", ""),
+            "instructions": recipe.get("instructions", ""), 
+            "cuisine": recipe.get("cuisine", "")
+        })
+    
+    # Build the prompt
+    prompt = f"""You are an expert chef AI assistant. Based on the following information, create a detailed, original recipe.
+
+        USER PREFERENCES:
+        - Available Ingredients: {', '.join(user_preferences.get('ingredients', [])) if user_preferences.get('ingredients') else 'Any'}
+        - Maximum Cooking Time: {user_preferences.get('max_time', 'No limit')} minutes
+        - Dietary Restrictions: {', '.join(user_preferences.get('dietary_restrictions', [])) if user_preferences.get('dietary_restrictions') else 'None'}
+        - Cuisine Preference: {user_preferences.get('cuisine_preference', 'Indian')}
+        - Spice Level: {user_preferences.get('spice_level', 'medium')}
+        - Servings: {user_preferences.get('servings', 2)}
+
+        SIMILAR RECIPES FOR INSPIRATION (DO NOT COPY):
+        {json.dumps(similar_recipes, indent=2)}
+
+        INSTRUCTIONS:
+        Create an ORIGINAL recipe that:
+        1. Respects all dietary restrictions
+        2. Uses the available ingredients (or suggests close alternatives)
+        3. Stays within the time limit
+        4. Matches the preferred cuisine style and spice level
+        5. Is detailed, practical, and easy to follow
+
+        OUTPUT FORMAT (Return ONLY valid JSON, no other text):
+        {{
+        "title": "Recipe Name",
+        "estimated_time": 30,
+        "ingredients": [
+            "1 tbsp olive oil",
+            "2 cloves garlic, minced",
+            "500g chicken breast"
+        ],
+        "instructions": [
+            "Heat oil in a large pan over medium heat",
+            "Add garlic and sauté for 1-2 minutes until fragrant",
+            "Add chicken and cook for 8-10 minutes until golden brown"
+        ]
+        }}
+
+        Generate the recipe now:"""
+
+    full_response = ""
+    try:
+        completion = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant", 
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an expert chef who creates original recipes. Always respond with valid JSON only."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7,
+            max_tokens=2048,
+            top_p=1,
+            stream=True,
+            stop=None
+        )
+        
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        if "```json" in full_response:
+            full_response = full_response.split("```json")[1].split("```")[0].strip()
+        elif "```" in full_response:
+            full_response = full_response.split("```")[1].split("```")[0].strip()
+        
+        recipe_data = json.loads(full_response)
+        return recipe_data
+        
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to parse recipe JSON: {str(e)}. Response: {full_response[:200]}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Groq API error: {str(e)}")
+
+@app.post("/generate-recipe",
+          tags=["Recipe Generation"],
+          summary="Generate Custom Recipe",
+          description="Generate a personalized recipe using AI based on your ingredients, time, and dietary preferences",
+          response_model=GeneratedRecipe)
+def generate_custom_recipe(request: RecipeGenerationRequest):
+    """
+    Generate a custom recipe using Groq AI based on user preferences.
+    
+    This endpoint:
+    1. Searches for similar recipes based on your preferences
+    2. Uses AI to generate an original recipe tailored to your needs
+    3. Respects dietary restrictions, time limits, and available ingredients
+    """
+    try:
+        query_parts = []
+        
+        if request.ingredients:
+            query_parts.extend(request.ingredients[:5]) 
+        
+        if request.cuisine_preference:
+            query_parts.append(request.cuisine_preference)
+        
+        if request.dietary_restrictions:
+            query_parts.extend(request.dietary_restrictions)
+        
+        query_parts.append(f"{request.spice_level} spice")
+        
+        search_query = " ".join(query_parts) if query_parts else "popular Indian recipe"
+        
+        filters = {}
+        if request.cuisine_preference:
+            filters["cuisine"] = {"$eq": request.cuisine_preference}
+        if request.max_time:
+            filters["total_time"] = {"$lte": request.max_time}
+        
+        search_results = query_rag(
+            query=search_query,
+            top_k=5,
+            filters=filters if filters else None
+        )
+        
+        # If no results with filters, try without filters
+        if not search_results and filters:
+            print(f"No results with filters, trying without filters...")
+            search_results = query_rag(
+                query=search_query,
+                top_k=5,
+                filters=None
+            )
+        
+        # If still no results, use a generic query
+        if not search_results:
+            print(f"No results for query '{search_query}', using generic query...")
+            search_results = query_rag(
+                query="Indian recipe",
+                top_k=5,
+                filters=None
+            )
+        
+        # If STILL no results, the database is empty
+        if not search_results:
+            raise HTTPException(
+                status_code=503,
+                detail="Recipe database is empty. Please run /ingest endpoint first to load recipes."
+            )
+        
+        # Prepare user preferences for Groq
+        user_prefs = {
+            "ingredients": request.ingredients,
+            "max_time": request.max_time,
+            "dietary_restrictions": request.dietary_restrictions,
+            "cuisine_preference": request.cuisine_preference or "Indian",
+            "spice_level": request.spice_level,
+            "servings": request.servings
+        }
+        
+        # Generate recipe using Groq
+        generated_recipe = generate_recipe_with_groq(search_results, user_prefs)
+        
+        return {
+            "title": generated_recipe.get("title", "Custom Recipe"),
+            "estimated_time": generated_recipe.get("estimated_time", 30),
+            "ingredients": generated_recipe.get("ingredients", []),
+            "instructions": generated_recipe.get("instructions", [])
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recipe generation error: {str(e)}")
+    
+    
+@app.post("/generate-recipe/personalized",
+          tags=["Recipe Generation"],
+          summary="Generate Personalized Recipe (Authenticated)",
+          description="Generate a recipe using your saved preferences and cooking history",
+          response_model=GeneratedRecipe)
+def generate_personalized_recipe(
+    request: RecipeGenerationRequest,
+    current_user: dict = Depends(verify_token)
+):
+    """
+    Generate a personalized recipe using user's saved preferences and history.
+    Requires authentication.
+    """
+    try:
+        db = get_database()
+        
+        user = db.users.find_one({"_id": ObjectId(current_user["user_id"])})
+        saved_preferences = user.get("preferences", {}) if user else {}
+        
+        merged_preferences = {
+            "ingredients": request.ingredients or [],
+            "max_time": request.max_time or saved_preferences.get("preferred_cooking_time"),
+            "dietary_restrictions": request.dietary_restrictions or saved_preferences.get("dietary_restrictions", []),
+            "cuisine_preference": request.cuisine_preference or (
+                saved_preferences.get("favorite_cuisines", ["Indian"])[0] if saved_preferences.get("favorite_cuisines") else "Indian"
+            ),
+            "spice_level": request.spice_level or saved_preferences.get("spice_level", "medium"),
+            "servings": request.servings
+        }
+        
+        # Build search query
+        query_parts = []
+        
+        if merged_preferences["ingredients"]:
+            query_parts.extend(merged_preferences["ingredients"][:5])
+        
+        if merged_preferences["cuisine_preference"]:
+            query_parts.append(merged_preferences["cuisine_preference"])
+        
+        if merged_preferences["dietary_restrictions"]:
+            query_parts.extend(merged_preferences["dietary_restrictions"])
+        
+        query_parts.append(f"{merged_preferences['spice_level']} spice")
+        
+        search_query = " ".join(query_parts) if query_parts else "popular Indian recipe"
+        
+        # Search with filters
+        filters = {}
+        if merged_preferences["cuisine_preference"]:
+            filters["cuisine"] = {"$eq": merged_preferences["cuisine_preference"]}
+        if merged_preferences["max_time"]:
+            filters["total_time"] = {"$lte": merged_preferences["max_time"]}
+        
+        search_results = query_rag(
+            query=search_query,
+            top_k=5,
+            filters=filters if filters else None
+        )
+        
+        if not search_results:
+            raise HTTPException(
+                status_code=404,
+                detail="No similar recipes found. Try adjusting your preferences."
+            )
+        
+        # Generate recipe
+        generated_recipe = generate_recipe_with_groq(search_results, merged_preferences)
+        
+        return {
+            "title": generated_recipe.get("title", "Custom Recipe"),
+            "estimated_time": generated_recipe.get("estimated_time", 30),
+            "ingredients": generated_recipe.get("ingredients", []),
+            "instructions": generated_recipe.get("instructions", [])
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recipe generation error: {str(e)}")
+
+
 # ===== COOKING HISTORY ENDPOINTS =====
 @app.post("/history/add",
           tags=["Cooking History"])
@@ -398,10 +671,8 @@ def get_recommendations(
         
         history_recipes = [doc["recipe_name"] for doc in history_cursor]
         
-        # Build recommendation query based on preferences and history
         query_parts = []
         
-        # Add favorite cuisines
         favorite_cuisines = preferences.get("favorite_cuisines", [])
         if favorite_cuisines:
             query_parts.extend(favorite_cuisines)
@@ -415,12 +686,11 @@ def get_recommendations(
         spice_level = preferences.get("spice_level", "medium")
         query_parts.append(f"{spice_level} spice")
         
-        # Create query from history (find similar recipes)
         if history_recipes:
-            query_parts.extend(history_recipes[:3])  # Use last 3 recipes
+            query_parts.extend(history_recipes[:3]) 
         
         # Build final query
-        query = " ".join(query_parts[:10])  # Limit query length
+        query = " ".join(query_parts[:10]) 
         if not query:
             query = "popular Indian recipes"
         
@@ -436,7 +706,7 @@ def get_recommendations(
         # Get recommendations
         results = query_rag(
             query=query,
-            top_k=count * 2,  # Get more to filter duplicates
+            top_k=count * 2, 
             filters=filters if filters else None
         )
         
@@ -450,9 +720,8 @@ def get_recommendations(
         
         filtered_results = []
         for result in results:
-            # Extract recipe_id from the result (assuming it's in the format "recipe_X")
             recipe_score = result["score"]
-            if recipe_score > 0.3:  # Only include relevant matches
+            if recipe_score > 0.3: 
                 filtered_results.append(result)
             
             if len(filtered_results) >= count:
@@ -512,7 +781,7 @@ def get_cooking_stats(current_user: dict = Depends(verify_token)):
             "recent_activity_30_days": recent_activity,
             "average_rating": round(avg_rating, 2) if avg_rating else None,
             "total_rated_recipes": total_rated,
-            "cooking_streak": "Feature coming soon"  # You can implement streak logic
+            # "cooking_streak": "Feature coming soon" 
         }
         
     except Exception as e:
