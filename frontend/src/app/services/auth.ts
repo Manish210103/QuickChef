@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 @Injectable({
@@ -22,6 +22,15 @@ export class AuthService {
     return this.http.get(`${this.baseUrl}/auth/profile`, {
       headers: { Authorization: `Bearer ${token}` }
     });
+  }
+
+  updatePreferences(preferences: any) {
+    const token = this.getToken();
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`
+    });
+
+    return this.http.put(`${this.baseUrl}/auth/preferences`, preferences, { headers });
   }
 
   saveToken(token: string) {

@@ -11,8 +11,8 @@ import { CommonModule } from '@angular/common';
   styleUrl: './login.scss'
 })
 export class Login {
-  username = '';
-  password = '';
+  username!: string;
+  password!: string;
   error: string | null = null;
   success: string | null = null;
 

@@ -19,7 +19,8 @@
       <p class="subtitle">Join us and start your culinary journey</p>
     </div>
 
-    <form (ngSubmit)="onSignup()" class="auth-form">
+    <form #signupForm="ngForm" (ngSubmit)="onSignup()" class="auth-form">
+
       <div class="form-group">
         <label for="username">Username</label>
         <input 
@@ -28,6 +29,7 @@
           name="username" 
           placeholder="Choose a unique username" 
           required 
+          #usernameInput="ngModel"
           class="form-input"
         />
       </div>
@@ -40,7 +42,8 @@
           name="email" 
           type="email" 
           placeholder="Enter your email address" 
-          required 
+          required
+          #emailInput="ngModel"
           class="form-input"
         />
       </div>
@@ -53,18 +56,106 @@
           name="password" 
           type="password" 
           placeholder="Create a strong password" 
-          required 
+          required
+          #passwordInput="ngModel"
           class="form-input"
         />
       </div>
+
+      <!-- Single error message -->
+      <p class="error-message" *ngIf="signupForm.invalid">
+        All fields are mandatory
+      </p>
 
       <button type="submit" class="btn-submit">
         Create Account
       </button>
     </form>
 
+
     <div class="auth-footer">
       <p>Already have an account? <a routerLink="/login" class="auth-link">Login here</a></p>
     </div>
+  </div>
+</div>
+
+<!-- Preferences Modal -->
+<div class="modal-backdrop" *ngIf="showPreferences">
+  <div class="modal">
+    <h2>Set Your Preferences</h2>
+
+    <form class="preferences-form" (ngSubmit)="savePreferences()">
+      
+      <!-- Favorite cuisines -->
+      <div class="form-group">
+        <label>Favorite Cuisines <span class="required">*</span></label>
+        <div class="checkbox-group">
+          <label *ngFor="let cuisine of cuisines" class="checkbox-item">
+            <input 
+              type="checkbox" 
+              [value]="cuisine" 
+              [checked]="preferences.favorite_cuisines.includes(cuisine)"
+              (change)="toggleCuisine(cuisine, $event.target.checked)"
+            />
+            {{ cuisine }}
+          </label>
+        </div>
+      </div>
+
+      <!-- Dietary restrictions -->
+      <div class="form-group">
+        <label>Dietary Restrictions</label>
+        <div class="checkbox-group">
+          <label *ngFor="let r of restrictions" class="checkbox-item">
+            <input 
+              type="checkbox" 
+              [value]="r" 
+              [checked]="preferences.dietary_restrictions.includes(r)"
+              (change)="toggleRestriction(r, $event.target.checked)"
+            />
+            {{ r }}
+          </label>
+        </div>
+      </div>
+
+
+      <!-- Preferred cooking time -->
+      <div class="form-group">
+        <label for="time">Preferred Cooking Time (minutes) <span class="required">*</span></label>
+        <input 
+          id="time" 
+          type="number" 
+          [(ngModel)]="preferences.preferred_cooking_time" 
+          name="preferred_cooking_time"
+          class="form-input"
+          min="5"
+          required
+        />
+      </div>
+
+      <!-- Spice level -->
+      <div class="form-group">
+        <label for="spice">Spice Level <span class="required">*</span></label>
+        <select 
+          id="spice" 
+          [(ngModel)]="preferences.spice_level" 
+          name="spice_level"
+          class="form-input"
+          required
+        >
+          <option *ngFor="let level of spiceLevels" [value]="level">{{ level }}</option>
+        </select>
+      </div>
+
+      <!-- Actions -->
+      <div class="modal-actions">
+        <p class="mandatory-warning" *ngIf="!canSavePreferences">
+          All fields marked with * are mandatory.
+        </p>
+        <button type="submit" class="btn-save" [disabled]="!canSavePreferences">
+          Save Preferences
+        </button>
+      </div>
+    </form>
   </div>
 </div>

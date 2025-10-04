@@ -164,6 +164,10 @@ def register_user(user: UserRegister):
         
         try:
             result = db.users.insert_one(user_doc)
+            # Create access token
+            access_token = create_access_token(
+                data={"sub": user.username, "user_id": str(user_doc["_id"])}
+            )
         except DuplicateKeyError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -172,7 +176,8 @@ def register_user(user: UserRegister):
         
         return {
             "message": "User registered successfully",
-            "user_id": str(result.inserted_id)
+            "user_id": str(result.inserted_id),
+            "access_token": access_token
         }
         
     except HTTPException:

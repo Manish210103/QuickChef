@@ -1,0 +1,347 @@
+<div class="dashboard-container">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="logo-section">
+        <div class="logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+            <line x1="6" y1="17" x2="18" y2="17"/>
+          </svg>
+        </div>
+        <h1 class="logo-text">QuickChef</h1>
+      </div>
+      <div class="header-actions">
+        <button class="btn-profile">Profile</button>
+        <button class="btn-logout" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dashboard -->
+  <div class="main-content">
+    <div class="dashboard-grid">
+      
+      <!-- LEFT COLUMN - Recommendations -->
+      <div class="left-column">
+        <div class="card recommendations-card">
+          <div class="card-header recommendations-header">
+            <div class="header-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              </svg>
+              <h2>For You</h2>
+            </div>
+            <p class="header-subtitle">Based on your preferences</p>
+          </div>
+          
+          <div class="card-content recommendations-content">
+            <div *ngIf="recommendations.length === 0" class="empty-state">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              </svg>
+              <p>No recommendations yet</p>
+            </div>
+            
+            <div *ngFor="let rec of recommendations" 
+                 class="recommendation-item"
+                 (click)="selectRecommendation(rec.recipe)">
+              <div class="recommendation-header">
+                <h3 class="recommendation-title">{{ rec.recipe.name }}</h3>
+                <div class="recommendation-score">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  <span>{{ rec.score.toFixed(2) }}</span>
+                </div>
+              </div>
+              <div class="recommendation-meta">
+                <span class="meta-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {{ rec.recipe.total_time || 30 }}m
+                </span>
+                <span class="meta-badge">{{ rec.recipe.cuisine }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER COLUMN - Search & Generation -->
+      <div class="center-column">
+        <div class="card search-card">
+          <!-- Search Input -->
+          <div class="form-group">
+            <label class="form-label">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+              </svg>
+              Tell Us Your Ingredients
+            </label>
+            <textarea 
+              [(ngModel)]="ingredients"
+              placeholder="e.g., chicken breasts, cherry tomatoes, garlic, olive oil, basil..."
+              class="form-textarea"
+              rows="3"></textarea>
+            <p class="form-hint">Separate ingredients with commas. Be as specific as you can!</p>
+          </div>
+
+          <!-- Dietary Filters -->
+          <div class="form-group">
+            <label class="form-label">Dietary Filters (Optional)</label>
+            <div class="filter-buttons">
+              <button *ngFor="let filter of availableFilters"
+                      (click)="toggleDietaryFilter(filter)"
+                      [class.active]="isDietaryFilterActive(filter)"
+                      class="filter-btn">
+                {{ filter }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <button (click)="handleSearch()"
+                    [disabled]="loading || !ingredients.trim()"
+                    class="btn-search">
+              <svg *ngIf="!loading" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <svg *ngIf="loading" class="spinner" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              {{ loading ? 'Searching...' : 'Search Recipes' }}
+            </button>
+            <button (click)="handleGenerateRecipe()"
+                    [disabled]="generating || !ingredients.trim()"
+                    class="btn-generate">
+              <svg *ngIf="!generating" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+              </svg>
+              <svg *ngIf="generating" class="spinner" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+              </svg>
+              {{ generating ? 'Generating...' : 'Generate Recipe' }}
+            </button>
+          </div>
+
+          <!-- Tabs -->
+          <div class="tabs">
+            <button (click)="activeTab = 'search'"
+                    [class.active]="activeTab === 'search'"
+                    class="tab-btn">
+              Search Results ({{ searchResults.length }})
+            </button>
+            <button (click)="activeTab = 'generated'"
+                    [class.active]="activeTab === 'generated'"
+                    class="tab-btn">
+              Generated Recipe
+            </button>
+          </div>
+
+          <!-- Results Area -->
+          <div class="results-area">
+            <!-- Search Results Tab -->
+            <div *ngIf="activeTab === 'search'" class="search-results">
+              <div *ngIf="searchResults.length === 0" class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.3-4.3"/>
+                </svg>
+                <p>Enter ingredients and search to find recipes</p>
+              </div>
+
+              <div *ngFor="let result of searchResults" class="result-card">
+                <div class="result-header">
+                  <h3 class="result-title">{{ result.recipe.name }}</h3>
+                  <button (click)="handleAddToHistory(result.recipe)" class="btn-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M7 10v12"/>
+                      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="result-meta">
+                  <span class="meta-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    {{ result.recipe.total_time || 30 }} min
+                  </span>
+                  <span class="meta-badge">{{ result.recipe.cuisine }}</span>
+                  <span class="score-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    {{ result.score.toFixed(2) }}
+                  </span>
+                </div>
+                <div class="result-content">
+                  <strong>Ingredients:</strong> {{ truncateText(result.recipe.ingredients, 150) }}
+                </div>
+                <div class="result-content">
+                  <strong>Instructions:</strong> {{ truncateText(result.recipe.instructions, 200) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Generated Recipe Tab -->
+            <div *ngIf="activeTab === 'generated'" class="generated-recipe">
+              <div *ngIf="!generatedRecipe" class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                </svg>
+                <p>Click "Generate Recipe" to create a custom recipe</p>
+              </div>
+
+              <div *ngIf="generatedRecipe" class="recipe-detail">
+                <div class="recipe-detail-header">
+                  <h2 class="recipe-detail-title">{{ generatedRecipe.title }}</h2>
+                  <button (click)="handleAddToHistory(generatedRecipe)" class="btn-save">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M7 10v12"/>
+                      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/>
+                    </svg>
+                    Save
+                  </button>
+                </div>
+
+                <div class="recipe-info">
+                  <span class="info-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <strong>{{ generatedRecipe?.estimated_time }} minutes</strong>
+                  </span>
+                  <span class="info-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <strong>2 servings</strong>
+                  </span>
+                </div>
+
+                <div class="recipe-section">
+                  <h3 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+                    </svg>
+                    Ingredients
+                  </h3>
+                  <ul class="ingredient-list">
+                    <li *ngFor="let ingredient of generatedRecipe.ingredients">
+                      <span class="bullet">•</span>
+                      <span>{{ ingredient }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="recipe-section">
+                  <h3 class="section-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+                    </svg>
+                    Instructions
+                  </h3>
+                  <ol class="instruction-list">
+                    <li *ngFor="let step of generatedRecipe.instructions; let i = index">
+                      <span class="step-number">{{ i + 1 }}</span>
+                      <span class="step-text">{{ step }}</span>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN - History & Similar Dishes -->
+      <div class="right-column">
+        <!-- History -->
+        <div class="card history-card">
+          <div class="card-header history-header">
+            <div class="header-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M12 7v5l4 2"/>
+              </svg>
+              <h2>Recent History</h2>
+            </div>
+          </div>
+          
+          <div class="card-content history-content">
+            <div *ngIf="history.length === 0" class="empty-state">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              <p>No history yet</p>
+            </div>
+            
+            <div *ngFor="let item of history" class="history-item">
+              <h4 class="history-title">{{ item.recipe_name }}</h4>
+              <div class="history-meta">
+                <span>{{ formatDate(item.cooked_at) }}</span>
+                <div *ngIf="item.rating" class="rating">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  <span>{{ item.rating }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Similar Dishes -->
+        <div class="card similar-card">
+          <div class="card-header similar-header">
+            <div class="header-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              <h2>Similar Dishes</h2>
+            </div>
+          </div>
+          
+          <div class="card-content similar-content">
+            <div *ngIf="similarDishes.length === 0" class="empty-state">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              <p>Search to find similar dishes</p>
+            </div>
+            
+            <div *ngFor="let dish of similarDishes" 
+                 class="similar-item"
+                 (click)="selectSimilarDish(dish.recipe)">
+              <h4 class="similar-title">{{ dish.recipe.name }}</h4>
+              <div class="similar-meta">
+                <span class="meta-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {{ dish.recipe.total_time || 30 }}m
+                </span>
+                <span class="meta-badge">{{ dish.recipe.cuisine }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
