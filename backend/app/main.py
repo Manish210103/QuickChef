@@ -4,7 +4,7 @@ import json
 from fastapi import FastAPI, HTTPException, Query, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Dict, Optional, List
 from datetime import datetime
 from bson import ObjectId
 from collections import defaultdict
@@ -68,12 +68,19 @@ class HistoryAdd(BaseModel):
     recipe_name: str
     rating: Optional[int] = None
     notes: Optional[str] = None
-
+    ingredients: Optional[List[str]] = []
+    instructions: Optional[List[str]] = []
+    
 class UserPreferences(BaseModel):
     favorite_cuisines: Optional[List[str]] = []
     dietary_restrictions: Optional[List[str]] = []
     preferred_cooking_time: Optional[int] = None
     spice_level: Optional[str] = "medium"
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    preferences: Optional[UserPreferences] = None
     
 class RecipeGenerationRequest(BaseModel):
     ingredients: Optional[List[str]] = []
@@ -242,30 +249,47 @@ def get_user_profile(current_user: dict = Depends(verify_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Profile error: {str(e)}")
 
-@app.put("/auth/preferences",
-         tags=["Authentication"])
-def update_preferences(
-    preferences: UserPreferences,
+@app.put("/auth/update",
+            tags=["Authentication"])
+def update_user(
+    user_data: UserUpdate,
     current_user: dict = Depends(verify_token)
 ):
-    """Update user preferences"""
+    """Update user details (e.g., username, email, preferences)"""
     try:
         db = get_database()
-        
+        user_id = ObjectId(current_user["user_id"])
+
+        # Prepare update data
+        update_data = {k: v for k, v in user_data.dict().items() if v is not None}
+
+        # Perform update
         result = db.users.update_one(
-            {"_id": ObjectId(current_user["user_id"])},
-            {"$set": {"preferences": preferences.dict()}}
+            {"_id": user_id},
+            {"$set": update_data}
         )
-        
+
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        return {"message": "Preferences updated successfully"}
-        
+
+        # Fetch and return the updated user
+        updated_user = db.users.find_one({"_id": user_id})
+        if not updated_user:
+            raise HTTPException(status_code=404, detail="User not found after update")
+
+        # Convert MongoDB ObjectId and datetime to serializable format
+        updated_user["_id"] = {"$oid": str(updated_user["_id"])}
+        if "created_at" in updated_user:
+            updated_user["created_at"] = {
+                "$date": {"$numberLong": str(int(updated_user["created_at"].timestamp() * 1000))}
+            }
+
+        return updated_user
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Preferences update error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"User update error: {str(e)}")
 
 # ===== RECIPE SEARCH ENDPOINTS =====
 @app.get("/search",
@@ -566,9 +590,7 @@ def generate_personalized_recipe(
         raise HTTPException(status_code=500, detail=f"Recipe generation error: {str(e)}")
 
 
-# ===== COOKING HISTORY ENDPOINTS =====
-@app.post("/history/add",
-          tags=["Cooking History"])
+@app.post("/history/add", tags=["Cooking History"])
 def add_to_history(
     history_item: HistoryAdd,
     current_user: dict = Depends(verify_token)
@@ -576,23 +598,34 @@ def add_to_history(
     """Add recipe to user's cooking history"""
     try:
         db = get_database()
-        
+
+        # Build the document with all recipe details
         history_doc = {
             "user_id": ObjectId(current_user["user_id"]),
             "recipe_id": history_item.recipe_id,
             "recipe_name": history_item.recipe_name,
             "rating": history_item.rating,
             "notes": history_item.notes,
+            "ingredients": history_item.ingredients or [],
+            "instructions": history_item.instructions or [],
             "cooked_at": datetime.utcnow()
         }
-        
+
         result = db.user_history.insert_one(history_doc)
-        
+
         return {
             "message": "Recipe added to history",
-            "history_id": str(result.inserted_id)
+            "history_id": str(result.inserted_id),
+            "data": {
+                "recipe_id": history_item.recipe_id,
+                "recipe_name": history_item.recipe_name,
+                "ingredients": history_item.ingredients,
+                "instructions": history_item.instructions,
+                "rating": history_item.rating,
+                "notes": history_item.notes
+            }
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"History add error: {str(e)}")
 
