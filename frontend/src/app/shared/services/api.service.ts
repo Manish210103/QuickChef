@@ -7,7 +7,7 @@ import { Recipe, SearchResult, Recommendation, HistoryItem, GeneratedRecipe, Use
   providedIn: 'root'
 })
 export class ApiService {
-  private API_BASE = 'http://10.21.151.206:8000';
+  private API_BASE = 'http://10.21.151.227:8000';
 
   constructor(private http: HttpClient) {}
 
@@ -35,12 +35,23 @@ export class ApiService {
 
   addToHistory(recipe: Recipe): Observable<any> {
     const requestBody = {
-      recipe_id: recipe.id || 'generated',
-      recipe_name: recipe.name || recipe.title || 'Custom Recipe',
+      recipe_id: recipe.id ?? 'generated',
+      recipe_name: recipe.name ?? recipe.title ?? 'Custom Recipe',
       rating: 5,
-      ingredients: recipe.ingredients,
-      instructions: recipe.instructions
+      notes: '', // optional
+      ingredients: Array.isArray(recipe.ingredients)
+        ? recipe.ingredients
+        : typeof recipe.ingredients === 'string'
+          ? recipe.ingredients.split(',').map(i => i.trim())
+          : [],
+      instructions: Array.isArray(recipe.instructions)
+        ? recipe.instructions
+        : typeof recipe.instructions === 'string'
+          ? recipe.instructions.split('.').map(i => i.trim()).filter(Boolean)
+          : []
     };
+
+    console.log('📤 Sending to backend:', requestBody); // Debug
 
     return this.http.post(`${this.API_BASE}/history/add`, requestBody, {
       headers: this.getHeaders()
@@ -67,6 +78,19 @@ export class ApiService {
   // Profile
   getUserProfile(): Observable<UserProfile> {
     return this.http.get<UserProfile>(`${this.API_BASE}/auth/profile`, {
+      headers: this.getHeaders()
+    });
+  }
+
+  // Update User Profile
+  updateUserProfile(profileData: any): Observable<UserProfile> {
+    return this.http.put<UserProfile>(`${this.API_BASE}/auth/update`, profileData, {
+      headers: this.getHeaders()
+    });
+  }
+
+  deleteHistoryItem(id: string) {
+    return this.http.delete<{ message: string }>(`${this.API_BASE}/history/${id}`, {
       headers: this.getHeaders()
     });
   }

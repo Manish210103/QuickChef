@@ -292,18 +292,44 @@ def update_user(
         raise HTTPException(status_code=500, detail=f"User update error: {str(e)}")
 
 # ===== RECIPE SEARCH ENDPOINTS =====
-@app.get("/search",
-         tags=["Recipe Search"])
+@app.get("/search", tags=["Recipe Search"])
 def search(
     query: str = Query(..., description="Search query (e.g., 'spicy chicken curry')", example="butter chicken curry"),
-    top_k: int = Query(3, ge=1, le=10, description="Number of results to return")
+    top_k: int = Query(5, ge=1, le=10, description="Number of results to return")
 ):
-    """Public recipe search"""
+    """Public recipe search with similarity threshold and optimal top-k filtering"""
     try:
         results = query_rag(query, top_k)
-        return {"query": query, "results": results, "total": len(results)}
+        similarity_threshold = 0.35
+
+        # Filter only results above threshold
+        filtered_results = [
+            r for r in results if float(r["score"]) >= similarity_threshold
+        ]
+
+        # Sort by score (descending)
+        filtered_results.sort(key=lambda x: x["score"], reverse=True)
+
+        # Take only top_k after filtering
+        optimal_results = filtered_results[:top_k]
+
+        return {
+            "query": query,
+            "similarity_threshold": similarity_threshold,
+            "total_results": len(optimal_results),
+            "results": [
+                {
+                    "recipe_name": r["recipe"]["name"],
+                    "score": r["score"],
+                    "recipe": r["recipe"]
+                }
+                for r in optimal_results
+            ]
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
+
 
 @app.post("/search/advanced",
           tags=["Recipe Search"])

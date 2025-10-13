@@ -61,4 +61,22 @@ export class History implements OnInit {
   goBackToDashboard(): void {
     this.router.navigate(['/dashboard']);
   }
+
+  deleteHistoryItem(item: HistoryItem, event: MouseEvent): void {
+    event.stopPropagation(); // prevent triggering selectItem()
+    if (!confirm(`Delete recipe "${item.recipe_name}"?`)) return;
+
+    this.apiService.deleteHistoryItem(item._id).subscribe({
+      next: () => {
+        this.history = this.history.filter(h => h._id !== item._id);
+        if (this.selectedItem && this.selectedItem._id === item._id) {
+          this.selectedItem = this.history.length > 0 ? this.history[0] : null;
+        }
+      },
+      error: (error) => {
+        console.error('Error deleting recipe:', error);
+      }
+    });
+  }
+
 }
