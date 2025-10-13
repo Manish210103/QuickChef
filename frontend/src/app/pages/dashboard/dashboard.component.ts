@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../../shared/components/header/header.component';
 import { RecommendationsComponent } from '../../shared/components/recommendations/recommendations.component';
-import { HistoryComponent } from '../../shared/components/history/history.component';
 import { SearchComponent } from '../../shared/components/search/search.component';
 import { ApiService } from '../../shared/services/api.service';
 
@@ -13,7 +12,6 @@ import { ApiService } from '../../shared/services/api.service';
     CommonModule,
     HeaderComponent,
     RecommendationsComponent,
-    HistoryComponent,
     SearchComponent
   ],
   templateUrl: './dashboard.component.html',

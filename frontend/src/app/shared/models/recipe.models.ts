@@ -26,6 +26,8 @@ export interface HistoryItem {
   rating?: number;
   cooked_at: string;
   notes?: string;
+  ingredients?: string[];
+  instructions?: string[];
 }
 
 export interface GeneratedRecipe {
@@ -43,6 +45,7 @@ export interface UserProfile {
     dietary_restrictions?: string[];
     spice_level?: string;
     favorite_cuisines?: string[];
+    preferred_cooking_time: number;
   };
   created_at: string;
 }

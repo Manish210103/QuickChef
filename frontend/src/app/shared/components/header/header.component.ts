@@ -13,6 +13,10 @@ export class HeaderComponent {
 
   constructor(private router: Router) {}
 
+  onSavedClick(): void {
+    this.router.navigate(['/saved']);
+  }
+
   onProfileClick(): void {
     this.router.navigate(['/profile']);
   }

@@ -7,7 +7,7 @@ import { Recipe, SearchResult, Recommendation, HistoryItem, GeneratedRecipe, Use
   providedIn: 'root'
 })
 export class ApiService {
-  private API_BASE = 'http://10.21.151.227:8000';
+  private API_BASE = 'http://10.21.151.206:8000';
 
   constructor(private http: HttpClient) {}
 
@@ -37,7 +37,9 @@ export class ApiService {
     const requestBody = {
       recipe_id: recipe.id || 'generated',
       recipe_name: recipe.name || recipe.title || 'Custom Recipe',
-      rating: 5
+      rating: 5,
+      ingredients: recipe.ingredients,
+      instructions: recipe.instructions
     };
 
     return this.http.post(`${this.API_BASE}/history/add`, requestBody, {
