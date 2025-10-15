@@ -477,3 +477,117 @@
     text-align: center;
   }
 }
+
+// Add these styles to your existing search.component.scss
+
+.btn-icon {
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+
+  &.active {
+    color: #f97316; // Blue color when saved
+
+    svg {
+      fill: currentColor;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn-save {
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    transform: scale(1.05);
+  }
+
+  &.active {
+    color: #f97316; // Blue color when saved
+
+    svg {
+      fill: currentColor;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.btn-icon:active:not(:disabled),
+.btn-save:active:not(:disabled) {
+  animation: pulse 0.3s ease;
+}
+
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toast-message {
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  min-width: 200px;
+  max-width: 300px;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease, fadeOut 0.3s ease 3s forwards;
+}
+
+/* Error toast */
+.toast-error {
+  background: #ffe5e5;
+  color: #c0392b;
+  border-left: 0.25rem solid #e74c3c;
+}
+
+/* Success toast */
+.toast-success {
+  background: #e5ffe5;
+  color: #27ae60;
+  border-left: 0.25rem solid #2ecc71;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}

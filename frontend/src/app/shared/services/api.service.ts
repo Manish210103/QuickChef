@@ -9,7 +9,7 @@ import { Recipe, SearchResult, Recommendation, HistoryItem, GeneratedRecipe, Use
 export class ApiService {
   private API_BASE = 'http://10.21.151.227:8000';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   private getHeaders(): HttpHeaders {
     const token = localStorage.getItem('token') || '';
@@ -20,25 +20,28 @@ export class ApiService {
   }
 
   // Recommendations
-  getRecommendations(count: number = 5): Observable<{recommendations: Recommendation[]}> {
-    return this.http.get<{recommendations: Recommendation[]}>(`${this.API_BASE}/recommendations?count=${count}`, {
+  getRecommendations(count: number = 5): Observable<{ recommendations: Recommendation[] }> {
+    return this.http.get<{ recommendations: Recommendation[] }>(`${this.API_BASE}/recommendations?count=${count}`, {
       headers: this.getHeaders()
     });
   }
 
-  // History
-  getHistory(limit: number = 10): Observable<{history: HistoryItem[]}> {
-    return this.http.get<{history: HistoryItem[]}>(`${this.API_BASE}/history?limit=${limit}`, {
+  // History - with optional favourites filter
+  getHistory(limit: number = 10, favouritesOnly: boolean = false): Observable<{ history: HistoryItem[], total: number }> {
+    const url = `${this.API_BASE}/history?limit=${limit}&favourites_only=${favouritesOnly}`;
+    return this.http.get<{ history: HistoryItem[], total: number }>(url, {
       headers: this.getHeaders()
     });
   }
 
-  addToHistory(recipe: Recipe): Observable<any> {
+  // Add to History - with optional favourite flag
+  addToHistory(recipe: Recipe, favourite: boolean = false): Observable<any> {
     const requestBody = {
       recipe_id: recipe.id ?? 'generated',
       recipe_name: recipe.name ?? recipe.title ?? 'Custom Recipe',
       rating: 5,
-      notes: '', // optional
+      notes: '',
+      favourite: favourite, // NEW FIELD
       ingredients: Array.isArray(recipe.ingredients)
         ? recipe.ingredients
         : typeof recipe.ingredients === 'string'
@@ -51,9 +54,25 @@ export class ApiService {
           : []
     };
 
-    console.log('📤 Sending to backend:', requestBody); // Debug
+    console.log('📤 Sending to backend:', requestBody);
 
     return this.http.post(`${this.API_BASE}/history/add`, requestBody, {
+      headers: this.getHeaders()
+    });
+  }
+
+  // NEW: Toggle Favourite Status
+  toggleFavourite(historyId: string, favourite: boolean): Observable<any> {
+    return this.http.patch(
+      `${this.API_BASE}/history/${historyId}/favourite?favourite=${favourite}`,
+      {},
+      { headers: this.getHeaders() }
+    );
+  }
+
+  // Delete History Item
+  deleteHistoryItem(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.API_BASE}/history/${id}`, {
       headers: this.getHeaders()
     });
   }
@@ -66,7 +85,6 @@ export class ApiService {
       )
       .pipe(
         map(response => {
-          // Format ingredients & instructions like addToHistory()
           const formattedResults = response.results.map(item => {
             const recipe = item.recipe || {};
 
@@ -122,12 +140,6 @@ export class ApiService {
   // Update User Profile
   updateUserProfile(profileData: any): Observable<UserProfile> {
     return this.http.put<UserProfile>(`${this.API_BASE}/auth/update`, profileData, {
-      headers: this.getHeaders()
-    });
-  }
-
-  deleteHistoryItem(id: string) {
-    return this.http.delete<{ message: string }>(`${this.API_BASE}/history/${id}`, {
       headers: this.getHeaders()
     });
   }

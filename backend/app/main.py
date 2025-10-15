@@ -47,7 +47,7 @@ def startup_db_client():
 def shutdown_db_client():
     close_mongo_connection()
 
-# Pydantic Models (same as before)
+# Pydantic Models
 class UserRegister(BaseModel):
     username: str
     email: EmailStr
@@ -70,6 +70,7 @@ class HistoryAdd(BaseModel):
     notes: Optional[str] = None
     ingredients: Optional[List[str]] = []
     instructions: Optional[List[str]] = []
+    favourite: Optional[bool] = False
     
 class UserPreferences(BaseModel):
     favorite_cuisines: Optional[List[str]] = []
@@ -108,12 +109,13 @@ def home():
             "👤 User Authentication",
             "📝 Cooking History Tracking", 
             "🎯 Personalized Recommendations",
-            "📊 Cooking Analytics"
+            "📊 Cooking Analytics",
+            "⭐ Favorites Management"
         ],
         "endpoints": {
             "auth": ["/auth/register", "/auth/login", "/auth/profile"],
             "search": ["/search", "/search/advanced"],
-            "history": ["/history", "/history/add"],
+            "history": ["/history", "/history/add", "/history/{history_id}/favourite"],
             "recommendations": ["/recommendations"],
             "analytics": ["/analytics/cooking-stats"],
             "admin": ["/ingest", "/health"]
@@ -616,25 +618,70 @@ def generate_personalized_recipe(
         raise HTTPException(status_code=500, detail=f"Recipe generation error: {str(e)}")
 
 
+# ===== COOKING HISTORY (FAVORITES) ENDPOINTS =====
 @app.post("/history/add", tags=["Cooking History"])
 def add_to_history(
     history_item: HistoryAdd,
     current_user: dict = Depends(verify_token)
 ):
-    """Add recipe to user's cooking history"""
+    """Add recipe to user's cooking history (favorites). Unique by recipe_name."""
     try:
         db = get_database()
+        user_id = ObjectId(current_user["user_id"])
 
-        # Build the document with all recipe details
+        # Check if recipe already exists in history (based on recipe_name)
+        existing_entry = db.user_history.find_one({
+            "user_id": user_id,
+            "recipe_name": history_item.recipe_name
+        })
+
+        if existing_entry:
+            # If already exists, update fields including favourite
+            update_fields = {
+                "rating": history_item.rating,
+                "notes": history_item.notes,
+                "ingredients": history_item.ingredients or [],
+                "instructions": history_item.instructions or [],
+                "cooked_at": datetime.utcnow()
+            }
+            
+            # Update favourite if provided
+            if history_item.favourite is not None:
+                update_fields["favourite"] = history_item.favourite
+            
+            db.user_history.update_one(
+                {"_id": existing_entry["_id"]},
+                {"$set": update_fields}
+            )
+            
+            # Fetch updated entry
+            updated_entry = db.user_history.find_one({"_id": existing_entry["_id"]})
+            
+            return {
+                "message": "Recipe already in history — updated existing entry",
+                "history_id": str(existing_entry["_id"]),
+                "data": {
+                    "recipe_id": updated_entry.get("recipe_id"),
+                    "recipe_name": updated_entry.get("recipe_name"),
+                    "rating": updated_entry.get("rating"),
+                    "notes": updated_entry.get("notes"),
+                    "ingredients": updated_entry.get("ingredients", []),
+                    "instructions": updated_entry.get("instructions", []),
+                    "favourite": updated_entry.get("favourite", False)
+                }
+            }
+
+        # If not exists, insert new record
         history_doc = {
-            "user_id": ObjectId(current_user["user_id"]),
+            "user_id": user_id,
             "recipe_id": history_item.recipe_id,
             "recipe_name": history_item.recipe_name,
             "rating": history_item.rating,
             "notes": history_item.notes,
             "ingredients": history_item.ingredients or [],
             "instructions": history_item.instructions or [],
-            "cooked_at": datetime.utcnow()
+            "cooked_at": datetime.utcnow(),
+            "favourite": history_item.favourite if history_item.favourite is not None else False
         }
 
         result = db.user_history.insert_one(history_doc)
@@ -645,50 +692,90 @@ def add_to_history(
             "data": {
                 "recipe_id": history_item.recipe_id,
                 "recipe_name": history_item.recipe_name,
+                "rating": history_item.rating,
+                "notes": history_item.notes,
                 "ingredients": history_item.ingredients,
                 "instructions": history_item.instructions,
-                "rating": history_item.rating,
-                "notes": history_item.notes
+                "favourite": history_doc["favourite"]
             }
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"History add error: {str(e)}")
 
-@app.get("/history",
-         tags=["Cooking History"])
+
+@app.get("/history", tags=["Cooking History"])
 def get_user_history(
     limit: int = Query(20, ge=1, le=100, description="Maximum number of history items to return"),
     skip: int = Query(0, ge=0, description="Number of items to skip for pagination"),
+    favourites_only: bool = Query(False, description="Filter to show only favourites"),
     current_user: dict = Depends(verify_token)
 ):
-    """Get user's cooking history"""
+    """Get user's cooking history (favorites) with optional filter"""
     try:
         db = get_database()
         
-        cursor = db.user_history.find(
-            {"user_id": ObjectId(current_user["user_id"])}
-        ).sort("cooked_at", -1).skip(skip).limit(limit)
+        # Build query
+        query = {"user_id": ObjectId(current_user["user_id"])}
+        if favourites_only:
+            query["favourite"] = True
+        
+        cursor = db.user_history.find(query).sort("cooked_at", -1).skip(skip).limit(limit)
         
         history = []
         for doc in cursor:
             doc["_id"] = str(doc["_id"])
             doc["user_id"] = str(doc["user_id"])
+            # Ensure favourite field exists (backward compatibility)
+            if "favourite" not in doc:
+                doc["favourite"] = False
             history.append(doc)
         
-        total_count = db.user_history.count_documents(
-            {"user_id": ObjectId(current_user["user_id"])}
-        )
+        total_count = db.user_history.count_documents(query)
         
         return {
             "history": history,
             "total": total_count,
             "limit": limit,
-            "skip": skip
+            "skip": skip,
+            "favourites_only": favourites_only
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"History retrieval error: {str(e)}")
+
+
+@app.patch("/history/{history_id}/favourite", tags=["Cooking History"])
+def toggle_favourite(
+    history_id: str,
+    favourite: bool = Query(..., description="Set favourite status (true/false)"),
+    current_user: dict = Depends(verify_token)
+):
+    """Toggle favourite status for a recipe in history"""
+    try:
+        db = get_database()
+        
+        # Update the favourite field
+        result = db.user_history.update_one(
+            {
+                "_id": ObjectId(history_id),
+                "user_id": ObjectId(current_user["user_id"])
+            },
+            {"$set": {"favourite": favourite}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="History item not found")
+        
+        return {
+            "message": f"Recipe {'marked as favourite' if favourite else 'unmarked as favourite'}",
+            "history_id": history_id,
+            "favourite": favourite
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Favourite toggle error: {str(e)}")
+
 
 @app.delete("/history/{history_id}",
             tags=["Cooking History"])
@@ -814,6 +901,12 @@ def get_cooking_stats(current_user: dict = Depends(verify_token)):
             {"user_id": ObjectId(current_user["user_id"])}
         )
         
+        # Total favourites
+        total_favourites = db.user_history.count_documents({
+            "user_id": ObjectId(current_user["user_id"]),
+            "favourite": True
+        })
+        
         # Get recent activity (last 30 days)
         from datetime import datetime, timedelta
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
@@ -842,10 +935,10 @@ def get_cooking_stats(current_user: dict = Depends(verify_token)):
         
         return {
             "total_recipes_cooked": total_cooked,
+            "total_favourites": total_favourites,
             "recent_activity_30_days": recent_activity,
             "average_rating": round(avg_rating, 2) if avg_rating else None,
-            "total_rated_recipes": total_rated,
-            # "cooking_streak": "Feature coming soon" 
+            "total_rated_recipes": total_rated
         }
         
     except Exception as e:

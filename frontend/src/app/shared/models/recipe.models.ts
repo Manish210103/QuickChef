@@ -10,8 +10,9 @@ export interface Recipe {
 }
 
 export interface SearchResult {
-  recipe: Recipe;
+  recipe_name: string;
   score: number;
+  recipe: Recipe;
 }
 
 export interface Recommendation {
@@ -28,6 +29,7 @@ export interface HistoryItem {
   notes?: string;
   ingredients?: string[];
   instructions?: string[];
+  favourite: boolean;
 }
 
 export interface GeneratedRecipe {
