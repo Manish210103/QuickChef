@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import { Recipe, SearchResult, Recommendation, HistoryItem, GeneratedRecipe, UserProfile } from '../models/recipe.models';
 
 @Injectable({
@@ -59,8 +59,45 @@ export class ApiService {
   }
 
   // Search
-  searchRecipes(query: string, topK: number = 5): Observable<{results: SearchResult[]}> {
-    return this.http.get<{results: SearchResult[]}>(`${this.API_BASE}/search?query=${encodeURIComponent(query)}&top_k=${topK}`);
+  searchRecipes(query: string, topK: number = 5): Observable<{ results: SearchResult[] }> {
+    return this.http
+      .get<{ results: SearchResult[] }>(
+        `${this.API_BASE}/search?query=${encodeURIComponent(query)}&top_k=${topK}`
+      )
+      .pipe(
+        map(response => {
+          // Format ingredients & instructions like addToHistory()
+          const formattedResults = response.results.map(item => {
+            const recipe = item.recipe || {};
+
+            const formattedIngredients = Array.isArray(recipe.ingredients)
+              ? recipe.ingredients
+              : typeof recipe.ingredients === 'string'
+                ? recipe.ingredients.split(',').map(i => i.trim())
+                : [];
+
+            const formattedInstructions = Array.isArray(recipe.instructions)
+              ? recipe.instructions
+              : typeof recipe.instructions === 'string'
+                ? recipe.instructions
+                  .split('.')
+                  .map(i => i.trim())
+                  .filter(Boolean)
+                : [];
+
+            return {
+              ...item,
+              recipe: {
+                ...recipe,
+                ingredients: formattedIngredients,
+                instructions: formattedInstructions
+              }
+            };
+          });
+
+          return { results: formattedResults };
+        })
+      );
   }
 
   // Recipe Generation
