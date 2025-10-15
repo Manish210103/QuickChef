@@ -1,3 +1,10 @@
+<!-- Toast Container -->
+<div class="toast-container" *ngIf="error || success">
+  <div class="toast-message" [ngClass]="{ 'toast-error': error, 'toast-success': success }">
+    {{ error || success }}
+  </div>
+</div>
+
 <div class="history-container">
   <header class="header">
     <div class="header-content">
@@ -36,7 +43,7 @@
 
         <div class="item-header">
           <h3 class="history-title">{{ item.recipe_name }}</h3>
-          <button class="btn-delete-list" (click)="deleteHistoryItem(item, $event)">
+          <button class="btn-delete-list" (click)="confirmDelete(item, $event)">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -81,7 +88,7 @@
         <div class="detail-header">
           <div class="detail-title-row">
             <h2 class="detail-title">{{ selectedItem.recipe_name }}</h2>
-            <button class="btn-delete-detail" (click)="deleteHistoryItem(selectedItem, $event)">
+            <button class="btn-delete-detail" (click)="confirmDelete(selectedItem!, $event)">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -171,6 +178,18 @@
         <path d="M3 3v5h5" />
       </svg>
       <p>No cooking history yet. Start cooking to see your dishes here!</p>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-backdrop" *ngIf="showDeleteModal">
+  <div class="modal">
+    <h3>Confirm Deletion</h3>
+    <p>Are you sure you want to delete "<strong>{{ itemToDelete?.recipe_name }}</strong>"?</p>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" (click)="closeModal()">Cancel</button>
+      <button class="btn btn-delete" (click)="deleteConfirmed()">Delete</button>
     </div>
   </div>
 </div>
