@@ -22,3 +22,4 @@ scipy
 tqdm
 requests
 loguru
+groq
