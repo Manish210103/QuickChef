@@ -1,6 +1,9 @@
 <!-- ✅ Toast Container -->
 <div class="toast-container" *ngIf="error || success">
-  <div class="toast-message" [ngClass]="{ 'toast-error': error, 'toast-success': success }">
+  <div 
+    class="toast-message" 
+    [ngClass]="{ 'toast-error': error, 'toast-success': success }"
+  >
     {{ error || success }}
   </div>
 </div>
