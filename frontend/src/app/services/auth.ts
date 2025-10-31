@@ -31,7 +31,7 @@ export class AuthService {
       Authorization: `Bearer ${token}`
     });
 
-    return this.http.put(`${this.baseUrl}/auth/preferences`, preferences, { headers });
+    return this.http.put(`${this.baseUrl}/auth/update`, preferences, { headers });
   }
 
   saveToken(token: string) {
