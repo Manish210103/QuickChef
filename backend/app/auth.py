@@ -14,7 +14,12 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-product
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Updated CryptContext - set rounds to 12 to avoid timeout issues with bcrypt 4.x
+pwd_context = CryptContext(
+    schemes=["bcrypt"], 
+    deprecated="auto",
+    bcrypt__rounds=12
+)
 security = HTTPBearer()
 
 # MongoDB Configuration
@@ -69,11 +74,20 @@ def get_database():
     return mongo_db
 
 def hash_password(password: str) -> str:
-    """Hash a password"""
+    """Hash a password
+    
+    Note: Passwords longer than 72 bytes will be automatically truncated by bcrypt.
+    If you need to support longer passwords, consider hashing them first with a 
+    cryptographic hash function like SHA-256.
+    """
+    # Truncate password to 72 bytes before hashing (bcrypt limit)
+    password = password[:72]
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password"""
+    # Truncate to match what was hashed
+    plain_password = plain_password[:72]
     return pwd_context.verify(plain_password, hashed_password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
