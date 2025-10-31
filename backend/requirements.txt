@@ -2,8 +2,7 @@ fastapi
 uvicorn
 pydantic
 python-dotenv
-passlib[bcrypt]
-bcrypt
+passlib[argon2]
 PyJWT
 python-jose
 email-validator
