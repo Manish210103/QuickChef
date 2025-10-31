@@ -68,12 +68,18 @@ def get_database():
         connect_to_mongo()
     return mongo_db
 
+def safe_password(password: str) -> str:
+    """Ensure password fits bcrypt's 72-byte limit."""
+    return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+
 def hash_password(password: str) -> str:
-    """Hash a password"""
+    """Hash a password safely (bcrypt ≤ 72 bytes)."""
+    password = safe_password(password)
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password"""
+    """Verify a password safely (bcrypt ≤ 72 bytes)."""
+    plain_password = safe_password(plain_password)
     return pwd_context.verify(plain_password, hashed_password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
