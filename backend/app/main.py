@@ -8,7 +8,6 @@ from typing import Dict, Optional, List
 from datetime import datetime
 from bson import ObjectId
 from collections import defaultdict
-import numpy as np
 from pymongo.errors import DuplicateKeyError
 
 # Import your existing modules
