@@ -7,7 +7,7 @@ import { Recipe, SearchResult, Recommendation, HistoryItem, GeneratedRecipe, Use
   providedIn: 'root'
 })
 export class ApiService {
-  private API_BASE = 'http://10.237.146.227:8000';
+  private API_BASE = 'https://quickchef-production.up.railway.app';
 
   constructor(private http: HttpClient) { }
 
