@@ -1,12 +1,10 @@
 {
-    "routes": [
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist/frontend/browser",
+    "rewrites": [
         {
-            "src": "/(.*\\.(js|css|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot|json))",
-            "dest": "/$1"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/index.html"
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }
