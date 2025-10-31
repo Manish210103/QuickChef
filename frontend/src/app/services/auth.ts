@@ -6,7 +6,8 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class AuthService {
-  private baseUrl = 'https://quickchef-production.up.railway.app';
+  private baseUrl = 'https://quickchef.up.railway.app';
+  // private baseUrl = 'http://10.237.146.227:8000';
 
   constructor(private http: HttpClient) {}
 
