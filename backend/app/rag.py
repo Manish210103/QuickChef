@@ -9,12 +9,25 @@ import numpy as np
 load_dotenv()
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 
-# Initialize embedding model
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+# Global embedder instance (loaded once on startup)
+embedder = None
+
+def load_embedder():
+    """Load embedder once and cache in memory"""
+    global embedder
+    if embedder is not None:
+        return embedder
+    
+    print("Loading embedding model (this happens only once)...")
+    # Use device="cpu" to avoid GPU memory issues on Railway
+    embedder = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+    print("✓ Model loaded successfully")
+    return embedder
 
 def embed_text(text: str):
     """Generate 1024-dimensional embeddings with padding"""
-    embedding = embedder.encode(text)
+    model = load_embedder()
+    embedding = model.encode(text, convert_to_numpy=True)
     # Pad to 1024 dimensions to match existing index
     padding = np.zeros(1024 - len(embedding))
     return np.concatenate([embedding, padding]).tolist()
