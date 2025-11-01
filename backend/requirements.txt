@@ -12,3 +12,5 @@ pinecone
 requests
 loguru
 groq
+pandas
+sentence-transformers

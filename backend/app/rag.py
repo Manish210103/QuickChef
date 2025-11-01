@@ -1,113 +1,85 @@
 import os
-import json
-from pinecone import Pinecone
+import pandas as pd
+from tqdm import tqdm
+from sentence_transformers import SentenceTransformer
+from pinecone import Pinecone, ServerlessSpec
 from dotenv import load_dotenv
-from groq import Groq
+import numpy as np
 
 load_dotenv()
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-groq_client = Groq(api_key=GROQ_API_KEY)
+# Initialize embedding model
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
 def embed_text(text: str):
-    """
-    Generate embeddings using a simple hash-based approach for lightweight deployment.
-    For production, consider using an embedding API like OpenAI, Cohere, or Voyage AI.
-    """
-    # Simple deterministic embedding based on text content
-    # This creates a 1024-dimensional vector from text
-    from hashlib import sha256
-    
-    # Create multiple hash variations for better distribution
-    hashes = []
-    for i in range(32):  # 32 hashes * 32 bytes = 1024 dimensions
-        hash_input = f"{text}_{i}".encode()
-        hash_bytes = sha256(hash_input).digest()
-        # Convert bytes to normalized floats
-        for byte in hash_bytes:
-            hashes.append((byte / 255.0) - 0.5)  # Normalize to [-0.5, 0.5]
-    
-    return hashes[:1024]  # Ensure exactly 1024 dimensions
-
-# Alternative: Use Groq's embedding model (if available)
-# def embed_text(text: str):
-#     """Generate embeddings using Groq API"""
-#     try:
-#         response = groq_client.embeddings.create(
-#             model="your-embedding-model",
-#             input=text
-#         )
-#         embedding = response.data[0].embedding
-#         # Pad or truncate to 1024 dimensions
-#         if len(embedding) < 1024:
-#             embedding.extend([0.0] * (1024 - len(embedding)))
-#         return embedding[:1024]
-#     except Exception as e:
-#         print(f"Embedding error: {e}")
-#         return [0.0] * 1024
+    """Generate 1024-dimensional embeddings with padding"""
+    embedding = embedder.encode(text)
+    # Pad to 1024 dimensions to match existing index
+    padding = np.zeros(1024 - len(embedding))
+    return np.concatenate([embedding, padding]).tolist()
 
 def get_pinecone_index():
-    """Get Pinecone index"""
+    """Get or create Pinecone index 'quickchef' (1024-d, cosine)."""
     pc = Pinecone(api_key=PINECONE_API_KEY)
-    return pc.Index("quickchef")
+    index_name = "quickchef-1024"
+    # list indexes with compatibility across client versions
+    listed = pc.list_indexes()
+    try:
+        if isinstance(listed, dict) and "indexes" in listed:
+            existing = {ix["name"] for ix in listed["indexes"]}
+        elif hasattr(listed, "indexes"):
+            existing = {ix.name for ix in listed.indexes}
+        else:
+            existing = {getattr(ix, "name", ix.get("name")) for ix in listed}
+    except Exception:
+        existing = set()
+
+    if index_name not in existing:
+        pc.create_index(
+            name=index_name,
+            dimension=1024,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1")
+        )
+    return pc.Index(index_name)
 
 def ingest_data(csv_path="data/Cleaned_Indian_Food_Dataset.csv"):
-    """Ingest CSV data into Pinecone without heavy dependencies"""
-    import csv
-    
+    """Ingest CSV data into Pinecone"""
     index = get_pinecone_index()
+    df = pd.read_csv(csv_path)
     
     batch_size = 100
     vectors = []
-    total_recipes = 0
     
-    print(f"Starting ingestion from {csv_path}...")
-    
-    with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
+    for i, row in tqdm(df.iterrows(), total=len(df), desc="Processing recipes"):
+        # Create text for embedding
+        text = f"Recipe: {row['TranslatedRecipeName']} Ingredients: {row['Cleaned-Ingredients']} Instructions: {row['TranslatedInstructions']} Cuisine: {row['Cuisine']}"
         
-        for i, row in enumerate(reader):
-            # Create text for embedding
-            text = f"Recipe: {row.get('TranslatedRecipeName', '')} Ingredients: {row.get('Cleaned-Ingredients', '')} Instructions: {row.get('TranslatedInstructions', '')} Cuisine: {row.get('Cuisine', '')}"
-            
-            # Parse total time safely
-            try:
-                total_time = int(float(row.get('TotalTimeInMins', 0)))
-            except (ValueError, TypeError):
-                total_time = 0
-            
-            vectors.append({
-                "id": f"recipe_{i}",
-                "values": embed_text(text),
-                "metadata": {
-                    "name": str(row.get('TranslatedRecipeName', '')),
-                    "ingredients": str(row.get('Cleaned-Ingredients', '')),
-                    "instructions": str(row.get('TranslatedInstructions', '')),
-                    "cuisine": str(row.get('Cuisine', '')),
-                    "total_time": total_time,
-                    "url": str(row.get('URL', '')),
-                    "image_url": str(row.get('image-url', ''))
-                }
-            })
-            
-            total_recipes += 1
-            
-            # Batch upsert
-            if len(vectors) >= batch_size:
-                index.upsert(vectors)
-                print(f"Upserted batch: {total_recipes} recipes processed")
-                vectors = []
+        vectors.append({
+            "id": f"recipe_{i}",
+            "values": embed_text(text),
+            "metadata": {
+                "name": str(row['TranslatedRecipeName']),
+                "ingredients": str(row['Cleaned-Ingredients']),
+                "instructions": str(row['TranslatedInstructions']),
+                "cuisine": str(row['Cuisine']),
+                "total_time": int(row['TotalTimeInMins']) if pd.notna(row['TotalTimeInMins']) else 0,
+                "url": str(row['URL']) if pd.notna(row['URL']) else "",
+                "image_url": str(row['image-url']) if pd.notna(row['image-url']) else ""
+            }
+        })
+        
+        # Batch upsert
+        if len(vectors) >= batch_size:
+            index.upsert(vectors)
+            vectors = []
     
     # Upsert remaining vectors
     if vectors:
         index.upsert(vectors)
-        print(f"Upserted final batch: {total_recipes} recipes total")
     
-    return {
-        "status": "success", 
-        "message": f"Successfully ingested {total_recipes} recipes"
-    }
+    return {"status": "success", "message": f"Successfully ingested {len(df)} recipes"}
 
 def query_rag(query: str, top_k: int = 3, filters: dict = None):
     """Search recipes"""

@@ -261,8 +261,8 @@ def update_user(
         db = get_database()
         user_id = ObjectId(current_user["user_id"])
 
-        # Prepare update data
-        update_data = {k: v for k, v in user_data.dict().items() if v is not None}
+        # Prepare update data (exclude None to avoid wiping fields)
+        update_data = user_data.dict(exclude_none=True)
 
         # Perform update
         result = db.users.update_one(
@@ -278,14 +278,14 @@ def update_user(
         if not updated_user:
             raise HTTPException(status_code=404, detail="User not found after update")
 
-        # Convert MongoDB ObjectId and datetime to serializable format
-        updated_user["_id"] = {"$oid": str(updated_user["_id"])}
-        if "created_at" in updated_user:
-            updated_user["created_at"] = {
-                "$date": {"$numberLong": str(int(updated_user["created_at"].timestamp() * 1000))}
-            }
-
-        return updated_user
+        # Return consistent profile-like response
+        return {
+            "user_id": str(updated_user["_id"]),
+            "username": updated_user.get("username"),
+            "email": updated_user.get("email"),
+            "preferences": updated_user.get("preferences", {}),
+            "created_at": updated_user.get("created_at")
+        }
 
     except HTTPException:
         raise
