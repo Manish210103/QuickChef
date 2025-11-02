@@ -156,11 +156,12 @@
 .recipe-detail-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: start;
   margin-bottom: 1rem;
+  flex-direction: column;
 }
 
-.header-actions { display: inline-flex; align-items: center; gap: 0.5rem; }
+.header-actions { display: inline-flex; align-items: center; gap: 0.2rem; }
 
 .recipe-detail-title {
   font-size: 1.5rem;
@@ -285,7 +286,7 @@
 .btn-feedback {
   background: linear-gradient(to right, #f59e0b, #f97316);
   color: #fff;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 1.8rem;
   border-radius: 0.5rem;
   border: none;
   cursor: pointer;
