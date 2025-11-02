@@ -8,6 +8,8 @@
   </div>
 </div>
 
+<app-recipe-modal *ngIf="showDetailsModal && modalRecipe" [recipe]="modalRecipe" (closed)="closeDetails()"
+  (submitFeedback)="onModalFeedback($event)"></app-recipe-modal>
 
 <div class="card search-card">
 
@@ -89,10 +91,10 @@
         <p>Enter ingredients and search to find recipes</p>
       </div>
 
-      <div *ngFor="let result of searchResults" class="result-card">
+      <div *ngFor="let result of searchResults" class="result-card" (click)="openDetails(result)">
         <div class="result-header">
           <h3 class="result-title">{{ result.recipe.name }}</h3>
-          <button (click)="toggleFavorite(result.recipe)" [disabled]="isAddingToHistory(result.recipe)"
+          <button (click)="toggleFavorite(result.recipe); $event.stopPropagation()" [disabled]="isAddingToHistory(result.recipe)"
             [class.active]="isRecipeSaved(result.recipe)" class="btn-icon"
             [title]="isRecipeSaved(result.recipe) ? 'Remove from favorites' : 'Add to favorites'">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
@@ -145,6 +147,7 @@
       <div *ngIf="generatedRecipe" class="recipe-detail">
         <div class="recipe-detail-header">
           <h2 class="recipe-detail-title">{{ generatedRecipe.title }}</h2>
+          <div class="header-actions">
           <button (click)="toggleFavorite(generatedRecipe)" [disabled]="isAddingToHistory(generatedRecipe)"
             [class.active]="isRecipeSaved(generatedRecipe)" class="btn-save"
             [title]="isRecipeSaved(generatedRecipe) ? 'Remove from favorites' : 'Add to favorites'">
@@ -157,6 +160,8 @@
             </svg>
             {{ isRecipeSaved(generatedRecipe) ? 'Saved' : 'Save' }}
           </button>
+          <button class="btn-feedback" (click)="openGenFeedbackModal()">Give Feedback</button>
+          </div>
         </div>
 
         <div class="recipe-info">
@@ -216,4 +221,43 @@
     </div>
   </div>
 
+</div>
+
+<!-- Feedback Modal Overlay for Generated Recipe -->
+<div class="modal-backdrop" *ngIf="showGenFeedbackModal">
+  <div class="modal">
+    <h3>Recipe Feedback</h3>
+    <div class="modal-section">
+      <label class="modal-label">Spice Level</label>
+      <div class="radio-group">
+        <label class="choice"><input type="radio" name="spice" value="mild" [(ngModel)]="feedback.spice_level"><span>Mild</span></label>
+        <label class="choice"><input type="radio" name="spice" value="medium" [(ngModel)]="feedback.spice_level"><span>Medium</span></label>
+        <label class="choice"><input type="radio" name="spice" value="hot" [(ngModel)]="feedback.spice_level"><span>Hot</span></label>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">Would you cook this again?</label>
+      <div class="radio-group">
+        <label class="choice"><input type="radio" name="again" [value]="true" [(ngModel)]="feedback.would_cook_again"><span>Yes</span></label>
+        <label class="choice"><input type="radio" name="again" [value]="false" [(ngModel)]="feedback.would_cook_again"><span>No</span></label>
+      </div>
+    </div>
+    <div class="modal-section">
+      <label class="modal-label">Rating</label>
+      <div class="stars" role="radiogroup" aria-label="Rating">
+        <button type="button" class="star" *ngFor="let r of [1,2,3,4,5]"
+                [class.active]="feedback.rating && feedback.rating >= r"
+                (click)="feedback.rating = r"
+                [attr.aria-checked]="feedback.rating === r">
+          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" (click)="closeGenFeedbackModal()">Cancel</button>
+      <button class="btn btn-submit" (click)="submitFeedbackFor(generatedRecipe); closeGenFeedbackModal()">Submit</button>
+    </div>
+  </div>
 </div>

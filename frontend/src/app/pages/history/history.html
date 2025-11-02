@@ -33,50 +33,52 @@
   <div class="main-content" *ngIf="history.length > 0">
     <!-- History List -->
     <div class="history-list">
-      <div class="list-header">
+      <div class="list-header sticky">
         <h2>Your Recipes</h2>
         <span class="recipe-count">{{ history.length }}</span>
       </div>
 
-      <div *ngFor="let item of history" class="history-item" [class.active]="selectedItem?._id === item._id"
-        (click)="selectItem(item)">
+      <div class="history-cards-row">
+        <div *ngFor="let item of history" class="history-item" [class.active]="selectedItem?._id === item._id"
+          (click)="selectItem(item)">
 
-        <div class="item-header">
-          <h3 class="history-title">{{ item.recipe_name }}</h3>
-          <button class="btn-delete-list" (click)="confirmDelete(item, $event)">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6l-1 14H6L5 6"></path>
-              <path d="M10 11v6"></path>
-              <path d="M14 11v6"></path>
-              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-            </svg>
-          </button>
-        </div>
-
-        <div class="item-meta">
-          <span class="date-badge">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor"
-              stroke-width="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-            {{ formatDate(item.cooked_at) }}
-          </span>
-
-          <div *ngIf="item.notes" class="notes-preview">
-            {{ item.notes | slice:0:40 }}{{ item.notes.length > 40 ? '...' : '' }}
+          <div class="item-header">
+            <h3 class="history-title">{{ item.recipe_name }}</h3>
+            <button class="btn-delete-list" (click)="confirmDelete(item, $event)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6l-1 14H6L5 6"></path>
+                <path d="M10 11v6"></path>
+                <path d="M14 11v6"></path>
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+              </svg>
+            </button>
           </div>
-        </div>
 
-        <div class="item-footer">
-          <div *ngIf="item.rating" class="rating-badge">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <polygon
-                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-            <span>{{ item.rating }}</span>
+          <div class="item-meta">
+            <span class="date-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor"
+                stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              {{ formatDate(item.cooked_at) }}
+            </span>
+
+            <div *ngIf="item.notes" class="notes-preview">
+              {{ item.notes | slice:0:40 }}{{ item.notes.length > 40 ? '...' : '' }}
+            </div>
+          </div>
+
+          <div class="item-footer">
+            <div *ngIf="item.rating" class="rating-badge">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon
+                  points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              <span>{{ item.rating }}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,3 +1,145 @@
+/* Preferences Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 62, 80, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 1rem;
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 0.5rem 2rem rgba(230, 126, 34, 0.25);
+  animation: slideDown 0.3s ease;
+}
+
+.preferences-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.preferences-form .form-group label {
+  display: block;
+  font-weight: 600;
+  color: #34495e;
+  margin-bottom: 0.5rem;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  background: #fef5e7;
+  border: 0.125rem solid #fdebd0;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.checkbox-item input { margin-right: 0.5rem; cursor: pointer; }
+.checkbox-item:hover { background: #fff3e0; border-color: #e67e22; }
+
+.form-input, select, input[type="number"] {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
+  color: #2c3e50;
+  background: #fef5e7;
+  border: 0.125rem solid #fdebd0;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus, select:focus, input[type="number"]:focus {
+  outline: none;
+  border-color: #e67e22;
+  background: #ffffff;
+  box-shadow: 0 0 0 0.2rem rgba(230, 126, 34, 0.15);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.mandatory-warning {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+
+.btn-save {
+  padding: 0.8rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  color: #fff;
+}
+
+.btn-save:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(230, 126, 34, 0.3);
+}
+
+.required { color: #c0392b; }
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Edit Profile: selectable chips */
+.selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button.selected-tag {
+  appearance: none;
+  border: 2px solid #fde68a; /* light orange */
+  background: #ffffff;
+  color: #374151;
+  border-radius: 9999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.08s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button.selected-tag:hover { background: #fff7ed; border-color: #fdba74; }
+
+button.selected-tag.active {
+  background: linear-gradient(to right, #f97316, #f59e0b);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 10px rgba(249, 115, 22, 0.25);
+}
+
 /* Profile Component Styles */
 .profile-container {
   background: linear-gradient(to bottom right, #fff7ed, #fef3c7, #fef9c3);

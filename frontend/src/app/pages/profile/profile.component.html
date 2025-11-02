@@ -106,32 +106,32 @@
               Preferences
             </h3>
             <div class="form-group">
-              <label for="dietary">Dietary Restrictions</label>
+              <label>Dietary Restrictions</label>
               <div class="tag-input-container">
                 <div class="selected-tags">
-                  <span *ngFor="let restriction of editForm.preferences.dietary_restrictions; let i = index"
-                    class="selected-tag">
-                    {{ restriction }}
-                    <button type="button" (click)="removeRestriction(i)" class="tag-remove">×</button>
-                  </span>
+                  <button type="button"
+                          *ngFor="let opt of availableDietaryRestrictions"
+                          (click)="toggleRestriction(opt)"
+                          class="selected-tag"
+                          [class.active]="isRestrictionSelected(opt)">
+                    {{ opt }}
+                  </button>
                 </div>
-                <input type="text" id="dietary" [(ngModel)]="newRestriction" (keyup.enter)="addRestriction()"
-                  placeholder="Add restriction (press Enter)" class="form-input tag-input" />
               </div>
             </div>
 
             <div class="form-group">
-              <label for="cuisines">Favorite Cuisines</label>
+              <label>Favorite Cuisines</label>
               <div class="tag-input-container">
                 <div class="selected-tags">
-                  <span *ngFor="let cuisine of editForm.preferences.favorite_cuisines; let i = index"
-                    class="selected-tag cuisine-tag">
-                    {{ cuisine }}
-                    <button type="button" (click)="removeCuisine(i)" class="tag-remove">×</button>
-                  </span>
+                  <button type="button"
+                          *ngFor="let opt of availableCuisines"
+                          (click)="toggleCuisine(opt)"
+                          class="selected-tag"
+                          [class.active]="isCuisineSelected(opt)">
+                    {{ opt }}
+                  </button>
                 </div>
-                <input type="text" id="cuisines" [(ngModel)]="newCuisine" (keyup.enter)="addCuisine()"
-                  placeholder="Add cuisine (press Enter)" class="form-input tag-input" />
               </div>
             </div>
 

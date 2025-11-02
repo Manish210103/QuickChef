@@ -1,0 +1,93 @@
+<div class="modal-backdrop" (click)="close()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="title">{{ recipe?.name || recipe?.title }}</h2>
+      <button class="icon-btn" (click)="close()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="meta">
+      <span class="badge">{{ recipe?.cuisine || 'Recipe' }}</span>
+      <span class="meta-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        {{ recipe?.total_time || 30 }} min
+      </span>
+    </div>
+
+    <div class="section">
+      <h3 class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+        </svg>
+        Ingredients
+      </h3>
+      <div class="ingredients-grid">
+        <div *ngFor="let ingredient of parseIngredients(recipe?.ingredients)" class="ingredient-pill">
+          {{ ingredient }}
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3 class="section-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
+          <path
+            d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" />
+        </svg>
+        Instructions
+      </h3>
+      <div class="instructions-list">
+        <div *ngFor="let step of parseInstructions(recipe?.instructions); let i = index" class="instruction-step">
+          <div class="step-number">{{ i + 1 }}</div>
+          <div class="step-text">{{ step }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section feedback">
+      <h3>Quick Feedback</h3>
+      <form (ngSubmit)="onSubmitFeedback()">
+        <div class="row">
+          <label>Spice Level</label>
+          <select [(ngModel)]="feedback.spice_level" name="spice_level">
+            <option [ngValue]="undefined">Select...</option>
+            <option *ngFor="let s of spiceLevels" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+
+        
+
+        <div class="row">
+          <label>Would Cook Again?</label>
+          <select [(ngModel)]="feedback.would_cook_again" name="would_cook_again">
+            <option [ngValue]="undefined">Select...</option>
+            <option [ngValue]="true">Yes</option>
+            <option [ngValue]="false">No</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label>Rating</label>
+          <div class="stars">
+            <button type="button"
+                    class="star"
+                    *ngFor="let s of [1,2,3,4,5]"
+                    [class.active]="feedback.rating && feedback.rating >= s"
+                    (click)="setRating(s)">★</button>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="primary" [disabled]="submitted">
+            {{ submitted ? 'Submitted successfully' : 'Submit' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

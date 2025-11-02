@@ -27,6 +27,22 @@ export class ApiService {
     });
   }
 
+  // Cache helpers
+  saveSearchState(query: string, results: any[]): void {
+    localStorage.setItem('qc_search_state', JSON.stringify({ query, results, ts: Date.now() }));
+  }
+  loadSearchState(): { query: string; results: any[] } | null {
+    const raw = localStorage.getItem('qc_search_state');
+    return raw ? JSON.parse(raw) : null;
+  }
+  saveRecs(recs: any[]): void {
+    localStorage.setItem('qc_recs', JSON.stringify({ recs, ts: Date.now() }));
+  }
+  loadRecs(): { recs: any[] } | null {
+    const raw = localStorage.getItem('qc_recs');
+    return raw ? JSON.parse(raw) : null;
+  }
+
   // History - with optional favourites filter
   getHistory(limit: number = 10, favouritesOnly: boolean = false): Observable<{ history: HistoryItem[], total: number }> {
     const url = `${this.API_BASE}/history?limit=${limit}&favourites_only=${favouritesOnly}`;
@@ -117,6 +133,22 @@ export class ApiService {
           return { results: formattedResults };
         })
       );
+  }
+
+  // Recipe details
+  getRecipeById(id: string): Observable<any> {
+    return this.http.get(`${this.API_BASE}/recipes/${id}`, { headers: this.getHeaders() });
+  }
+
+  // Feedback
+  submitFeedback(payload: {
+    recipe_id?: string | null;
+    recipe_name: string;
+    answers: any;
+    rating?: number | null;
+    generated?: boolean;
+  }): Observable<any> {
+    return this.http.post(`${this.API_BASE}/feedback`, payload, { headers: this.getHeaders() });
   }
 
   // Recipe Generation

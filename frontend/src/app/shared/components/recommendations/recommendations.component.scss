@@ -6,7 +6,7 @@
   border: 1px solid #fed7aa;
   overflow: hidden;
   transition: box-shadow 0.3s ease;
-  height: 100%;
+  height: auto; /* prevent stretching when there are no recommendations */
 }
 
 .recommendations-card:hover {

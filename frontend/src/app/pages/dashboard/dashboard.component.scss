@@ -59,7 +59,7 @@
 
   .left-column {
     height: auto;
-    min-height: 50vh;
+    min-height: 0; /* prevent large vertical gap when stacked */
   }
 }
 

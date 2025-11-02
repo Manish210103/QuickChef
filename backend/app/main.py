@@ -4,7 +4,7 @@ import json
 from fastapi import FastAPI, HTTPException, Query, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from datetime import datetime
 from bson import ObjectId
 from collections import defaultdict
@@ -95,6 +95,13 @@ class GeneratedRecipe(BaseModel):
     estimated_time: int
     ingredients: List[str]
     instructions: List[str]
+
+class FeedbackRequest(BaseModel):
+    recipe_id: Optional[str] = None
+    recipe_name: str
+    answers: Dict[str, Any] = {}
+    rating: Optional[int] = None
+    generated: Optional[bool] = False
 
 # ===== SYSTEM ENDPOINTS =====
 @app.get("/", 
@@ -809,83 +816,129 @@ def get_recommendations(
     """Get personalized recipe recommendations based on user history and preferences"""
     try:
         db = get_database()
-        
         # Get user preferences
         user = db.users.find_one({"_id": ObjectId(current_user["user_id"])})
         preferences = user.get("preferences", {}) if user else {}
-        
+
         # Get user history
         history_cursor = db.user_history.find(
             {"user_id": ObjectId(current_user["user_id"])}
         ).sort("cooked_at", -1).limit(20)
-        
         history_recipes = [doc["recipe_name"] for doc in history_cursor]
-        
+
         query_parts = []
-        
         favorite_cuisines = preferences.get("favorite_cuisines", [])
         if favorite_cuisines:
             query_parts.extend(favorite_cuisines)
-        
-        # Add dietary restrictions context
+
         dietary_restrictions = preferences.get("dietary_restrictions", [])
         if dietary_restrictions:
             query_parts.extend([f"no {restriction}" for restriction in dietary_restrictions])
-        
-        # Add spice level preference
+
         spice_level = preferences.get("spice_level", "medium")
         query_parts.append(f"{spice_level} spice")
-        
+
         if history_recipes:
-            query_parts.extend(history_recipes[:3]) 
-        
-        # Build final query
-        query = " ".join(query_parts[:10]) 
-        if not query:
-            query = "popular Indian recipes"
-        
-        # Build filters
+            query_parts.extend(history_recipes[:3])
+
+        query = " ".join(query_parts[:10]) or "popular Indian recipes"
+
         filters = {}
         if favorite_cuisines:
             filters["cuisine"] = {"$in": favorite_cuisines}
-        
         preferred_time = preferences.get("preferred_cooking_time")
         if preferred_time:
             filters["total_time"] = {"$lte": preferred_time}
-        
-        # Get recommendations
+
         results = query_rag(
             query=query,
-            top_k=count * 2, 
+            top_k=count * 2,
             filters=filters if filters else None
         )
-        
-        # Filter out recipes already in history
-        history_recipe_ids = set()
-        history_cursor_2 = db.user_history.find(
-            {"user_id": ObjectId(current_user["user_id"])}
-        )
-        for doc in history_cursor_2:
-            history_recipe_ids.add(doc["recipe_id"])
-        
+
         filtered_results = []
         for result in results:
-            recipe_score = result["score"]
-            if recipe_score > 0.3: 
+            if result["score"] > 0.3:
                 filtered_results.append(result)
-            
             if len(filtered_results) >= count:
                 break
-        
+
         return {
             "recommendations": filtered_results[:count],
             "query_used": query,
             "user_preferences": preferences,
             "total_found": len(filtered_results)
         }
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ===== FEEDBACK ENDPOINT =====
+@app.post("/feedback", tags=["Feedback"])
+def submit_feedback(
+    req: FeedbackRequest,
+    current_user: dict = Depends(verify_token)
+):
+    """Submit structured user feedback for a recipe or generated recipe."""
+    try:
+        db = get_database()
+        doc = {
+            "user_id": ObjectId(current_user["user_id"]),
+            "recipe_id": req.recipe_id,
+            "recipe_name": req.recipe_name,
+            "answers": req.answers,
+            "rating": req.rating,
+            "generated": bool(req.generated),
+            "created_at": datetime.utcnow()
+        }
+        res = db.user_feedback.insert_one(doc)
+
+        # Optional light preference updates
+        updates = {}
+        cuisine = req.answers.get("cuisine") if req.answers else None
+        if cuisine:
+            updates.setdefault("preferences.favorite_cuisines", cuisine)
+        spice = req.answers.get("spice_level") if req.answers else None
+        if spice:
+            db.users.update_one(
+                {"_id": ObjectId(current_user["user_id"])},
+                {"$set": {"preferences.spice_level": spice}}
+            )
+        # If a single cuisine answer provided, ensure it exists in list
+        if cuisine:
+            db.users.update_one(
+                {"_id": ObjectId(current_user["user_id"])},
+                {"$addToSet": {"preferences.favorite_cuisines": cuisine}}
+            )
+
+        return {"message": "Feedback recorded", "feedback_id": str(res.inserted_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Feedback submission error: {str(e)}")
+
+# ===== RECIPE DETAILS ENDPOINT =====
+@app.get("/recipes/{recipe_id}", tags=["Recipes"])
+def get_recipe_details(
+    recipe_id: str
+):
+    """Fetch a recipe vector's metadata by ID from Pinecone."""
+    try:
+        index = get_pinecone_index()
+        fetched = index.fetch(ids=[recipe_id])
+        vec = fetched.get("vectors", {}).get(recipe_id)
+        if not vec or "metadata" not in vec:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        md = vec["metadata"]
+        return {
+            "id": recipe_id,
+            "name": md.get("name"),
+            "ingredients": md.get("ingredients"),
+            "instructions": md.get("instructions"),
+            "cuisine": md.get("cuisine"),
+            "total_time": md.get("total_time"),
+            "url": md.get("url"),
+            "image_url": md.get("image_url")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recipe retrieval error: {str(e)}")
 
 # ===== ANALYTICS ENDPOINT =====
 @app.get("/analytics/cooking-stats",
@@ -894,8 +947,7 @@ def get_cooking_stats(current_user: dict = Depends(verify_token)):
     """Get user's cooking analytics"""
     try:
         db = get_database()
-        
-        # Total recipes cooked
+        # ... (rest of the function remains the same)
         total_cooked = db.user_history.count_documents(
             {"user_id": ObjectId(current_user["user_id"])}
         )

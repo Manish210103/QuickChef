@@ -29,6 +29,7 @@ export class DashboardComponent implements OnInit {
 
   onLogoutClick(): void {
     localStorage.removeItem('token');
+    localStorage.removeItem('qc_search_state')
     this.router.navigate(['/login']);
   }
 

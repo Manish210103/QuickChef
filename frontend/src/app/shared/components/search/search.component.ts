@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { SearchResult, GeneratedRecipe, Recipe } from '../../models/recipe.models';
+import { RecipeModalComponent } from '../recipe-modal/recipe-modal.component';
 
 @Component({
   selector: 'app-search',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RecipeModalComponent],
   templateUrl: './search.component.html',
   styleUrl: './search.component.scss'
 })
@@ -31,12 +32,40 @@ export class SearchComponent implements OnInit, OnChanges {
 
   savedRecipes: { [key: string]: { isSaved: boolean; historyId?: string } } = {};
 
+  // Modal state for recipe details
+  showDetailsModal: boolean = false;
+  modalRecipe: any = null;
+
+  // Feedback state (used for generated recipe or from modal)
+  feedback: { spice_level?: string; would_cook_again?: boolean; rating?: number | null } = {};
+  showGenFeedbackModal: boolean = false;
+
   constructor(private apiService: ApiService) { }
 
   ngOnInit(): void {
     if (this.selectedIngredients) {
       this.ingredients = this.selectedIngredients;
     }
+
+    // Hydrate cached search state (persist across navigation)
+    const cached = this.apiService.loadSearchState();
+    if (cached) {
+      this.ingredients = this.ingredients || cached.query;
+      this.searchResults = cached.results || [];
+    }
+
+    // Preload favourites to pre-mark liked state
+    this.apiService.getHistory(100, true).subscribe({
+      next: (res) => {
+        const map: { [key: string]: { isSaved: boolean; historyId?: string } } = {};
+        for (const h of res.history) {
+          const key = h.recipe_name;
+          map[key] = { isSaved: true, historyId: h._id };
+        }
+        this.savedRecipes = { ...this.savedRecipes, ...map };
+      },
+      error: () => {}
+    });
   }
 
   ngOnChanges(): void {
@@ -58,6 +87,8 @@ export class SearchComponent implements OnInit, OnChanges {
         this.activeTab = 'search';
         this.loading = false;
         this.showToast("Search completed successfully!", "success");
+        // Persist to localStorage
+        this.apiService.saveSearchState(this.ingredients, this.searchResults);
       },
       error: (error) => {
         console.error('Error searching:', error);
@@ -166,6 +197,66 @@ export class SearchComponent implements OnInit, OnChanges {
   isAddingToHistory(recipe: Recipe): boolean {
     const recipeKey = recipe.name || recipe.title || 'recipe';
     return this.addingToHistory[recipeKey] || false;
+  }
+
+  // ===== Details Modal =====
+  openDetails(result: SearchResult): void {
+    this.modalRecipe = result.recipe;
+    this.showDetailsModal = true;
+  }
+
+  closeDetails(): void {
+    this.showDetailsModal = false;
+    this.modalRecipe = null;
+  }
+
+  openGenFeedbackModal(): void {
+    this.showGenFeedbackModal = true;
+  }
+
+  closeGenFeedbackModal(): void {
+    this.showGenFeedbackModal = false;
+  }
+
+  // ===== Feedback submission =====
+  submitFeedbackFor(recipe: any): void {
+    const payload = {
+      recipe_id: recipe.id ?? null,
+      recipe_name: recipe.name ?? recipe.title ?? 'Custom Recipe',
+      answers: {
+        spice_level: this.feedback.spice_level || null,
+        would_cook_again: this.feedback.would_cook_again ?? null
+      },
+      rating: this.feedback.rating ?? null,
+      generated: !!recipe.title && !recipe.name // heuristic: generated recipe has title
+    };
+    this.apiService.submitFeedback(payload).subscribe({
+      next: () => {
+        this.showToast('Feedback submitted. Thanks!', 'success');
+        this.feedback = {};
+      },
+      error: () => this.showToast('Failed to submit feedback', 'error')
+    });
+  }
+
+  // Handle feedback event from modal with its own local state
+  onModalFeedback(e: { recipe: any; feedback: any }): void {
+    const recipe = e.recipe || {};
+    const f = e.feedback || {};
+    const payload = {
+      recipe_id: recipe.id ?? null,
+      recipe_name: recipe.name ?? recipe.title ?? 'Custom Recipe',
+      answers: {
+        spice_level: f.spice_level ?? null,
+        would_cook_again: f.would_cook_again ?? null
+      },
+      rating: f.rating ?? null,
+      generated: !!recipe.title && !recipe.name
+    };
+    this.apiService.submitFeedback(payload).subscribe({
+      next: () => this.showToast('Feedback submitted. Thanks!', 'success'),
+      error: () => this.showToast('Failed to submit feedback', 'error')
+    });
   }
 
   showToast(message: string, type: 'success' | 'error'): void {

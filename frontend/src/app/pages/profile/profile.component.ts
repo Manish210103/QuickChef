@@ -27,6 +27,7 @@ export class ProfileComponent implements OnInit {
   error: string | null = null;
   isEditMode: boolean = false;
   isSaving: boolean = false;
+  showPreferences: boolean = false;
 
   editForm: EditFormData = {
     username: '',
@@ -38,8 +39,27 @@ export class ProfileComponent implements OnInit {
     }
   };
 
-  newRestriction: string = '';
-  newCuisine: string = '';
+  // Predefined options
+  availableDietaryRestrictions: string[] = [
+    'Vegan','Vegetarian','Gluten-Free','Dairy-Free','Nut-Free','Low-Carb','High-Protein'
+  ];
+  availableCuisines: string[] = [
+    'Italian','South Indian','North Indian','Continental','Mexican'
+  ];
+  spiceLevels: string[] = ['mild','medium','hot'];
+
+  // Preferences model for modal
+  preferences: {
+    favorite_cuisines: string[];
+    dietary_restrictions: string[];
+    preferred_cooking_time: number | null;
+    spice_level: string | '';
+  } = {
+    favorite_cuisines: [],
+    dietary_restrictions: [],
+    preferred_cooking_time: null,
+    spice_level: ''
+  };
 
   constructor(
     private apiService: ApiService,
@@ -94,28 +114,93 @@ export class ProfileComponent implements OnInit {
     }
   }
 
-  addRestriction(): void {
-    const restriction = this.newRestriction.trim();
-    if (restriction && !this.editForm.preferences.dietary_restrictions.includes(restriction)) {
-      this.editForm.preferences.dietary_restrictions.push(restriction);
-      this.newRestriction = '';
-    }
+  // Toggle helpers for option chips
+  toggleRestriction(option: string): void {
+    const arr = this.editForm.preferences.dietary_restrictions;
+    const idx = arr.indexOf(option);
+    if (idx > -1) arr.splice(idx, 1); else arr.push(option);
   }
 
-  removeRestriction(index: number): void {
-    this.editForm.preferences.dietary_restrictions.splice(index, 1);
+  toggleCuisine(option: string): void {
+    const arr = this.editForm.preferences.favorite_cuisines;
+    const idx = arr.indexOf(option);
+    if (idx > -1) arr.splice(idx, 1); else arr.push(option);
   }
 
-  addCuisine(): void {
-    const cuisine = this.newCuisine.trim();
-    if (cuisine && !this.editForm.preferences.favorite_cuisines.includes(cuisine)) {
-      this.editForm.preferences.favorite_cuisines.push(cuisine);
-      this.newCuisine = '';
-    }
+  // Checkbox change versions (for (change) with checked flag)
+  toggleRestrictionChecked(option: string, checked: boolean): void {
+    const arr = this.editForm.preferences.dietary_restrictions;
+    if (checked && !arr.includes(option)) arr.push(option);
+    if (!checked) this.editForm.preferences.dietary_restrictions = arr.filter(x => x !== option);
   }
 
-  removeCuisine(index: number): void {
-    this.editForm.preferences.favorite_cuisines.splice(index, 1);
+  toggleCuisineChecked(option: string, checked: boolean): void {
+    const arr = this.editForm.preferences.favorite_cuisines;
+    if (checked && !arr.includes(option)) arr.push(option);
+    if (!checked) this.editForm.preferences.favorite_cuisines = arr.filter(x => x !== option);
+  }
+
+  isRestrictionSelected(option: string): boolean {
+    return this.editForm.preferences.dietary_restrictions.includes(option);
+  }
+
+  isCuisineSelected(option: string): boolean {
+    return this.editForm.preferences.favorite_cuisines.includes(option);
+  }
+
+  // ===== Preferences Modal API =====
+  openPreferences(): void {
+    const p = this.userProfile?.preferences || {} as any;
+    this.preferences = {
+      favorite_cuisines: [...(p.favorite_cuisines || [])],
+      dietary_restrictions: [...(p.dietary_restrictions || [])],
+      preferred_cooking_time: p.preferred_cooking_time ?? 30,
+      spice_level: p.spice_level || ''
+    };
+    this.showPreferences = true;
+  }
+
+  toggleCuisinePref(cuisine: string, checked: boolean): void {
+    const arr = this.preferences.favorite_cuisines;
+    if (checked && !arr.includes(cuisine)) arr.push(cuisine);
+    if (!checked) this.preferences.favorite_cuisines = arr.filter(c => c !== cuisine);
+  }
+
+  toggleRestrictionPref(r: string, checked: boolean): void {
+    const arr = this.preferences.dietary_restrictions;
+    if (checked && !arr.includes(r)) arr.push(r);
+    if (!checked) this.preferences.dietary_restrictions = arr.filter(x => x !== r);
+  }
+
+  get canSavePreferences(): boolean {
+    return (
+      this.preferences.favorite_cuisines.length > 0 &&
+      !!this.preferences.spice_level &&
+      !!this.preferences.preferred_cooking_time &&
+      this.preferences.preferred_cooking_time >= 5
+    );
+  }
+
+  savePreferences(): void {
+    if (!this.canSavePreferences) return;
+    this.isSaving = true;
+    this.apiService.updateUserProfile({
+      preferences: {
+        favorite_cuisines: this.preferences.favorite_cuisines,
+        dietary_restrictions: this.preferences.dietary_restrictions,
+        spice_level: this.preferences.spice_level,
+        preferred_cooking_time: this.preferences.preferred_cooking_time
+      }
+    }).subscribe({
+      next: (updated) => {
+        this.userProfile = updated;
+        this.isSaving = false;
+        this.showPreferences = false;
+      },
+      error: () => {
+        this.isSaving = false;
+      }
+    });
   }
 
   saveProfile(): void {
@@ -139,8 +224,6 @@ export class ProfileComponent implements OnInit {
 
   cancelEdit(): void {
     this.isEditMode = false;
-    this.newRestriction = '';
-    this.newCuisine = '';
   }
 
   formatDate(dateString: string): string {

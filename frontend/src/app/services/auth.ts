@@ -47,6 +47,12 @@ export class AuthService {
   }
 
   logout() {
-    localStorage.removeItem('token');
+    // Clear all persisted state for a fresh session
+    try {
+      localStorage.clear();
+    } catch {}
+    try {
+      sessionStorage.clear();
+    } catch {}
   }
 }
